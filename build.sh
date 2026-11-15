@@ -2,7 +2,8 @@
 # Packages the extension for Firefox and Chrome into dist/.
 set -e
 cd "$(dirname "$0")"
-rm -rf dist && mkdir -p dist/firefox dist/chrome
+rm -rf dist/firefox dist/chrome dist/*.zip dist/*.xpi
+mkdir -p dist/firefox dist/chrome
 
 cp -R extension/. dist/firefox/
 cp -R extension/. dist/chrome/
