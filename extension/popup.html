@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local Grammar</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" alt="" width="24" height="24">
+    <h1>Local Grammar</h1>
+    <label class="switch" title="Turn the extension on or off">
+      <input type="checkbox" id="enabled">
+      <span class="track"><span class="thumb"></span></span>
+    </label>
+  </header>
+
+  <div id="perm" class="banner" hidden>
+    <span>Firefox needs permission to run on websites.</span>
+    <button id="grant" class="btn primary">Allow</button>
+  </div>
+
+  <div class="status" id="status"><span class="led"></span><span id="status-text">Connecting to Ollama…</span></div>
+
+  <section>
+    <label for="model">Model</label>
+    <div class="row">
+      <select id="model"></select>
+      <button id="refresh" class="btn icon" title="Reload model list" aria-label="Reload model list">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>
+      </button>
+    </div>
+    <p class="hint" id="model-hint"></p>
+  </section>
+
+  <section>
+    <label for="mode">Corrections</label>
+    <select id="mode">
+      <option value="grammar">Grammar, spelling &amp; punctuation</option>
+      <option value="clarity">Also improve clarity &amp; flow</option>
+    </select>
+  </section>
+
+  <section class="toggle-row">
+    <div>
+      <div class="label">Check as soon as I select</div>
+      <div class="hint">Off: a small ✓ button appears next to the selection.</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="autoCheck">
+      <span class="track"><span class="thumb"></span></span>
+    </label>
+  </section>
+
+  <details>
+    <summary>Advanced</summary>
+    <section>
+      <label for="url">Ollama URL</label>
+      <div class="row">
+        <input id="url" type="url" spellcheck="false" placeholder="http://localhost:11434">
+        <button id="save-url" class="btn">Save</button>
+      </div>
+    </section>
+  </details>
+
+  <section class="test">
+    <label for="sample">Try it</label>
+    <textarea id="sample" rows="2" spellcheck="false">she dont know where is the library, and their late.</textarea>
+    <button id="test" class="btn primary">Check</button>
+    <div id="test-out" class="out" hidden></div>
+  </section>
+
+  <footer>Select text on any page, then click ✓ — or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd>, or right-click → Check grammar.</footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
