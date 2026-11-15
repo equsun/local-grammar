@@ -163,3 +163,7 @@ The signed `.xpi` is saved to `dist/signed/`.
 ```bash
 npx web-ext lint --source-dir extension
 ```
+
+## License
+
+[MIT](LICENSE.md). Free to use, modify and share.
