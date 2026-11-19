@@ -3,6 +3,7 @@
 A free, private, Grammarly-style grammar checker for your browser. Highlight any English text and get corrections from an AI model that runs **on your own computer** through [Ollama](https://ollama.com). You don't need an account, an API key or a subscription.
 
 - ✓ Fixes grammar, spelling, punctuation and word choice, and explains each fix
+- ✓ Rewrites text in a **Formal**, **Friendly** or **Professional** tone with one click
 - ✓ Shows changes in red and green and applies them with one click in text boxes and editors
 - ✓ Lets you switch between any models you have installed in Ollama
 - ✓ Works in Firefox, Chrome, Edge and Brave
@@ -71,6 +72,13 @@ Click the Local Grammar icon in the toolbar. If it's hidden, click the puzzle-pi
    - **Accept fix** puts the corrected text in place. This works in text boxes, textareas and rich editors such as email composers.
    - **Copy** copies the corrected text to the clipboard.
    - **Ignore** (or Esc) closes the card.
+4. To change the **tone**, click one of the buttons at the top of the card:
+   - **Standard**: grammar fixes only (the default)
+   - **Formal**: polished and precise, with no contractions or slang
+   - **Friendly**: warm and conversational
+   - **Professional**: clear, confident and courteous, good for work email
+
+   The card shows the rewritten text. **Show changes** marks what changed, and **Replace** puts the rewrite in place. Each tone is generated once per selection, so switching back and forth is instant.
 
 The first check after starting Ollama takes longer while the model loads. After that, checks usually take a few seconds.
 

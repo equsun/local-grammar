@@ -49,6 +49,23 @@ const PROMPTS = {
     "errors in the text inside <text> tags, and also make light edits that improve clarity " +
     "and flow. Keep the author's meaning, voice, formatting and line breaks. Do not add new content.",
 };
+const TONES = {
+  formal: "formal tone: polished and precise, with no contractions, slang or casual phrasing",
+  friendly: "friendly tone: warm, conversational and approachable; contractions are fine",
+  professional: "professional tone: clear, confident and courteous, suitable for a work email; concise",
+};
+const TONE_PROMPT = (tone) =>
+  `You are an expert English editor. Rewrite the text inside <text> tags in a ${TONES[tone]}. ` +
+  "Also fix any grammar, spelling and punctuation errors. Keep the original meaning, every fact, name, " +
+  "number and link, the same point of view, a similar length and the original line breaks. Do not add " +
+  "greetings, sign-offs, explanations or new content. Respond only with JSON: \"corrected\" is the full " +
+  "rewritten text (without the <text> tags).";
+const REWRITE_SCHEMA = {
+  type: "object",
+  properties: { corrected: { type: "string" } },
+  required: ["corrected"],
+};
+
 const OUTPUT_RULES =
   " Respond only with JSON: \"corrected\" is the full corrected text (without the <text> tags); " +
   "\"issues\" lists each change with the exact \"original\" fragment, its \"suggestion\", a short " +
@@ -177,22 +194,23 @@ function cleanCorrected(s) {
     .replace(/\s*<\/text>\s*$/i, "");
 }
 
-async function checkGrammar(text) {
+async function checkGrammar(text, tone = "standard") {
   text = String(text ?? "").trim();
   if (!text) throw new Error("Nothing selected.");
   if (text.length > MAX_CHARS) throw new Error(`Selection is too long (${text.length} chars). Select under ${MAX_CHARS} characters.`);
 
   const { mode } = await getSettings();
   const model = await resolveModel();
+  const rewrite = Object.hasOwn(TONES, tone);
   const body = {
     model,
     stream: false,
     think: false,
     keep_alive: "15m",
-    format: RESULT_SCHEMA,
-    options: { temperature: 0 },
+    format: rewrite ? REWRITE_SCHEMA : RESULT_SCHEMA,
+    options: { temperature: rewrite ? 0.3 : 0 },
     messages: [
-      { role: "system", content: (PROMPTS[mode] || PROMPTS.grammar) + OUTPUT_RULES },
+      { role: "system", content: rewrite ? TONE_PROMPT(tone) : (PROMPTS[mode] || PROMPTS.grammar) + OUTPUT_RULES },
       { role: "user", content: `<text>\n${text}\n</text>` },
     ],
   };
@@ -231,7 +249,7 @@ async function checkGrammar(text) {
       type: String(i.type || "grammar"),
     }));
 
-  return { original: text, corrected, issues, model, seconds: (data.total_duration || 0) / 1e9 };
+  return { original: text, corrected, issues, tone: rewrite ? tone : "standard", model, seconds: (data.total_duration || 0) / 1e9 };
 }
 
 // ---------- badge ----------
@@ -287,7 +305,7 @@ api.storage.onChanged.addListener((changes, area) => {
 // ---------- messages from content script & popup ----------
 
 const handlers = {
-  check: (msg) => checkGrammar(msg.text),
+  check: (msg) => checkGrammar(msg.text, msg.tone),
   listModels: () => listModels(),
   version: () => getVersion(),
 };

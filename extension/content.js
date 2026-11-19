@@ -140,6 +140,15 @@
     .x { border:none; background:none; color:var(--muted); font-size:18px; line-height:1; cursor:pointer;
          padding:2px 4px; border-radius:6px; }
     .x:hover { background:var(--soft); color:var(--fg); }
+    .tones { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 0; }
+    .tone { font:inherit; font-size:12px; line-height:1.4; padding:3px 10px; border-radius:999px; cursor:pointer;
+            border:1px solid var(--line); background:var(--bg); color:var(--muted); }
+    .tone:hover { color:var(--fg); background:var(--soft); }
+    .tone.active { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); font-weight:600; }
+    .rewrite { white-space:pre-wrap; word-wrap:break-word; }
+    .link { border:none; background:none; padding:0; margin-top:8px; cursor:pointer; font:inherit; font-size:12px;
+            color:var(--accent); display:block; }
+    .link:hover { text-decoration:underline; }
     .body { padding:12px; max-height:min(340px, 50vh); overflow:auto; }
     .diff { white-space:pre-wrap; word-wrap:break-word; }
     del { color:var(--del); background:var(--del-bg); text-decoration:line-through; border-radius:3px; padding:0 1px; }
@@ -239,7 +248,7 @@
     place(triggerEl, anchorFor(capture), { below: 6, alignLeft: -4 });
   }
 
-  function cardShell(modelLabel) {
+  function cardShell(modelLabel, session) {
     const body = h("div", { class: "body" });
     const actions = h("div", { class: "actions" });
     const card = h(
@@ -253,6 +262,7 @@
         h("span", { class: "model" }, modelLabel || ""),
         h("button", { class: "x", title: "Close (Esc)", onclick: hideCard }, "×")
       ),
+      session ? toneBar(session) : null,
       body,
       actions
     );
@@ -311,66 +321,122 @@
 
   // ---------- check ----------
 
-  async function runCheck(capture) {
+  const TONE_LABELS = { standard: "Standard", formal: "Formal", friendly: "Friendly", professional: "Professional" };
+
+  function runCheck(capture) {
     hideTrigger();
     if (!capture || !worthChecking(capture.text)) return;
     current = capture;
-    const anchor = anchorFor(capture);
-    const seq = ++requestSeq;
+    showTone({ capture, anchor: anchorFor(capture), results: {} }, "standard");
+  }
 
-    const loading = cardShell("");
-    loading.body.append(h("div", { class: "loading" }, h("span", { class: "spin" }), "Checking with your local model…"));
+  // A session is one selection; results are cached per tone so switching back is instant.
+  async function showTone(session, tone) {
+    session.tone = tone;
+    const seq = ++requestSeq;
+    if (session.results[tone]) {
+      renderResult(session);
+      return;
+    }
+
+    const loading = cardShell("", session);
+    const label = tone === "standard" ? "Checking with your local model…" : `Rewriting in a ${tone} tone…`;
+    loading.body.append(h("div", { class: "loading" }, h("span", { class: "spin" }), label));
     loading.actions.remove();
-    mountCard(loading.card, anchor);
+    mountCard(loading.card, session.anchor);
 
     let response;
     try {
-      response = await api.runtime.sendMessage({ type: "check", text: capture.text });
+      response = await api.runtime.sendMessage({ type: "check", text: session.capture.text, tone });
     } catch (err) {
       response = { ok: false, error: "Extension was reloaded — refresh this page and try again." };
     }
     if (seq !== requestSeq) return;
 
     if (!response?.ok) {
-      const view = cardShell("");
+      const view = cardShell("", session);
       view.body.append(h("div", { class: "err" }, response?.error || "Something went wrong."));
-      view.actions.append(h("button", { class: "btn", onclick: () => runCheck(capture) }, "Retry"));
-      mountCard(view.card, anchor);
+      view.actions.append(h("button", { class: "btn", onclick: () => showTone(session, tone) }, "Retry"));
+      mountCard(view.card, session.anchor);
       return;
     }
 
-    renderResult(capture, response.data, anchor);
+    session.results[tone] = response.data;
+    renderResult(session);
   }
 
-  function renderResult(capture, result, anchor) {
-    const view = cardShell(result.model);
+  function toneBar(session) {
+    const bar = h("div", { class: "tones", role: "group", "aria-label": "Tone" });
+    for (const [tone, label] of Object.entries(TONE_LABELS)) {
+      bar.append(
+        h(
+          "button",
+          {
+            class: tone === session.tone ? "tone active" : "tone",
+            "aria-pressed": String(tone === session.tone),
+            title: tone === "standard" ? "Fix grammar only" : `Rewrite in a ${tone} tone`,
+            onclick: () => tone !== session.tone && showTone(session, tone),
+          },
+          label
+        )
+      );
+    }
+    return bar;
+  }
+
+  function renderIssues(issues) {
+    const list = h("ul", { class: "issues" });
+    for (const issue of issues) {
+      list.append(
+        h(
+          "li",
+          { class: "issue" },
+          h(
+            "div",
+            { class: "chg" },
+            h("span", { class: "badge" }, issue.type),
+            h("del", {}, issue.original || "∅"),
+            h("span", { class: "arrow" }, "→"),
+            h("ins", {}, issue.suggestion || "(remove)")
+          ),
+          issue.explanation ? h("div", { class: "why" }, issue.explanation) : null
+        )
+      );
+    }
+    return list;
+  }
+
+  function renderResult(session) {
+    const { capture, anchor, tone } = session;
+    const result = session.results[tone];
+    const view = cardShell(result.model, session);
     const changed = result.corrected.trim() !== result.original.trim();
 
     if (!changed) {
-      view.body.append(h("div", { class: "ok" }, checkIcon(), h("span", {}, "Looks good — no issues found.")));
-    } else {
+      const msg = tone === "standard" ? "Looks good — no issues found." : `Already reads as ${tone}.`;
+      view.body.append(h("div", { class: "ok" }, checkIcon(), h("span", {}, msg)));
+    } else if (tone === "standard") {
       view.body.append(renderDiff(result.original, result.corrected));
-      if (result.issues.length) {
-        const list = h("ul", { class: "issues" });
-        for (const issue of result.issues) {
-          list.append(
-            h(
-              "li",
-              { class: "issue" },
-              h(
-                "div",
-                { class: "chg" },
-                h("span", { class: "badge" }, issue.type),
-                h("del", {}, issue.original || "∅"),
-                h("span", { class: "arrow" }, "→"),
-                h("ins", {}, issue.suggestion || "(remove)")
-              ),
-              issue.explanation ? h("div", { class: "why" }, issue.explanation) : null
-            )
-          );
-        }
-        view.body.append(list);
-      }
+      if (result.issues.length) view.body.append(renderIssues(result.issues));
+    } else {
+      // Tone rewrites change a lot of words, so show the clean text and keep the diff one click away.
+      const plain = h("div", { class: "rewrite" }, result.corrected);
+      let diff = null;
+      let shown = plain;
+      const toggle = h(
+        "button",
+        {
+          class: "link",
+          onclick: () => {
+            const next = shown === plain ? (diff ||= renderDiff(result.original, result.corrected)) : plain;
+            shown.replaceWith(next);
+            shown = next;
+            toggle.textContent = next === plain ? "Show changes" : "Hide changes";
+          },
+        },
+        "Show changes"
+      );
+      view.body.append(plain, toggle);
     }
 
     const canReplace = changed && (capture.kind === "input" || capture.kind === "editable");
@@ -385,7 +451,7 @@
               else flash(view.actions, "Couldn't replace — the text changed. Copy instead.");
             },
           },
-          "Accept fix"
+          tone === "standard" ? "Accept fix" : "Replace"
         )
       );
     }
